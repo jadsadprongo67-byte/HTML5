@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Fraction Visualizer</title>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .app-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .fraction-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 250px;
+        }
+        .inputs {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 50px;
+            font-size: 20px;
+            text-align: center;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .divider {
+            width: 60px;
+            height: 3px;
+            background-color: #333;
+            margin: 5px 0;
+        }
+        canvas {
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #fff;
+            margin-bottom: 15px;
+        }
+        .slider-container {
+            width: 100%;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .multiplier-text {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        .controls {
+            margin-top: 30px;
+        }
+        #mergeBtn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+            opacity: 0.5;
+        }
+        #mergeBtn:not([disabled]) {
+            opacity: 1;
+            animation: pulse 1.5s infinite;
+        }
+        #mergeBtn:not([disabled]):hover {
+            background-color: #45a049;
+        }
+        #message {
+            margin-top: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #e91e63;
+            height: 30px;
+        }
+        #result-container {
+            margin-top: 30px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>พับกระดาษหาเศษส่วนร่วม ✂️</h1>
+    <p>ลองเลื่อนแถบสไลเดอร์เพื่อพับแบ่งกระดาษให้มีจำนวนช่อง (ตัวส่วน) เท่ากันดูสิ!</p>
+
+    <div class="app-container">
+        <!-- Fraction 1 -->
+        <div class="fraction-card">
+            <div class="inputs">
+                <input type="number" id="num1" value="1" min="1" max="10" onchange="updateAll()">
+                <div class="divider"></div>
+                <input type="number" id="den1" value="2" min="1" max="10" onchange="updateAll()">
+            </div>
+            <canvas id="canvas1" width="200" height="200"></canvas>
+            <div class="slider-container">
+                <label>แบ่งเพิ่ม (คูณตัวส่วน):</label>
+                <input type="range" id="mult1" min="1" max="6" value="1" oninput="updateAll()">
+                <div class="multiplier-text" id="text1">พับ 1 ทบ (คูณ 1)</div>
+            </div>
+        </div>
+
+        <h2 style="align-self: center;">+</h2>
+
+        <!-- Fraction 2 -->
+        <div class="fraction-card">
+            <div class="inputs">
+                <input type="number" id="num2" value="1" min="1" max="10" onchange="updateAll()">
+                <div class="divider"></div>
+                <input type="number" id="den2" value="3" min="1" max="10" onchange="updateAll()">
+            </div>
+            <canvas id="canvas2" width="200" height="200"></canvas>
+            <div class="slider-container">
+                <label>แบ่งเพิ่ม (คูณตัวส่วน):</label>
+                <input type="range" id="mult2" min="1" max="6" value="1" oninput="updateAll()">
+                <div class="multiplier-text" id="text2">พับ 1 ทบ (คูณ 1)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div id="message"></div>
+        <button id="mergeBtn" disabled onclick="mergeFractions()">รวมร่าง (Merge)!</button>
+    </div>
+
+    <!-- Result -->
+    <div id="result-container">
+        <h2>ผลลัพธ์การรวมร่าง</h2>
+        <h3 id="result-text"></h3>
+        <canvas id="canvasResult" width="200" height="200"></canvas>
+    </div>
+
+    <script>
+        const color1 = 'rgba(255, 99, 132, 0.7)'; // สีชมพูแดง
+        const color2 = 'rgba(54, 162, 235, 0.7)'; // สีฟ้า
+
+        function drawGrid(canvasId, num, den, mult, color) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // คำนวณขนาดช่อง (แบ่งแนวนอนตามตัวส่วนเดิม แบ่งแนวตั้งตามการคูณ)
+            const cellHeight = height / den;
+            const cellWidth = width / mult;
+
+            // ระบายสีตามจำนวนเศษ
+            ctx.fillStyle = color;
+            for (let r = 0; r < num; r++) {
+                for (let c = 0; c < mult; c++) {
+                    ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+                }
+            }
+
+            // วาดเส้นตารางแนวนอน (ตัวส่วนตั้งต้น)
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            for (let r = 0; r <= den; r++) {
+                ctx.beginPath();
+                ctx.moveTo(0, r * cellHeight);
+                ctx.lineTo(width, r * cellHeight);
+                ctx.stroke();
+            }
+
+            // วาดเส้นตารางแนวตั้ง (จากการเลื่อนสไลเดอร์)
+            ctx.strokeStyle = '#666';
+            ctx.setLineDash([5, 5]); // เส้นประให้เห็นว่าเป็นการพับเพิ่ม
+            for (let c = 0; c <= mult; c++) {
+                ctx.beginPath();
+                ctx.moveTo(c * cellWidth, 0);
+                ctx.lineTo(c * cellWidth, height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]); // คืนค่าเส้นทึบ
+        }
+
+        function updateAll() {
+            const num1 = parseInt(document.getElementById('num1').value);
+            const den1 = parseInt(document.getElementById('den1').value);
+            const mult1 = parseInt(document.getElementById('mult1').value);
+
+            const num2 = parseInt(document.getElementById('num2').value);
+            const den2 = parseInt(document.getElementById('den2').value);
+            const mult2 = parseInt(document.getElementById('mult2').value);
+
+            document.getElementById('text1').innerText = `ซอยกระดาษ ${mult1} ส่วน (คูณ ${mult1})`;
+            document.getElementById('text2').innerText = `ซอยกระดาษ ${mult2} ส่วน (คูณ ${mult2})`;
+
+            drawGrid('canvas1', num1, den1, mult1, color1);
+            drawGrid('canvas2', num2, den2, mult2, color2);
+
+            const finalDen1 = den1 * mult1;
+            const finalDen2 = den2 * mult2;
+
+            const mergeBtn = document.getElementById('mergeBtn');
+            const message = document.getElementById('message');
+            const resultContainer = document.getElementById('result-container');
+            
+            resultContainer.style.display = 'none';
+
+            if (finalDen1 === finalDen2) {
+                mergeBtn.disabled = false;
+                message.innerText = "✨ เยี่ยมมาก! จำนวนช่อง (ตัวส่วน) เท่ากันที่ " + finalDen1 + " แล้ว กดรวมร่างได้เลย! ✨";
+                message.style.color = "#4CAF50";
+            } else {
+                mergeBtn.disabled = true;
+                message.innerText = `ตัวส่วนยังไม่เท่ากัน (ซ้าย: ${finalDen1}, ขวา: ${finalDen2})`;
+                message.style.color = "#e91e63";
+            }
+        }
+
+        function mergeFractions() {
+            const num1 = parseInt(document.getElementById('num1').value);
+            const mult1 = parseInt(document.getElementById('mult1').value);
+            const finalNum1 = num1 * mult1;
+
+            const num2 = parseInt(document.getElementById('num2').value);
+            const mult2 = parseInt(document.getElementById('mult2').value);
+            const finalNum2 = num2 * mult2;
+
+            const den = parseInt(document.getElementById('den1').value) * mult1; // ตัวส่วนร่วม
+            const totalNum = finalNum1 + finalNum2;
+
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.style.display = 'flex';
+            
+            document.getElementById('result-text').innerText = `${finalNum1}/${den} + ${finalNum2}/${den} = ${totalNum}/${den}`;
+
+            // วาดผลลัพธ์
+            const canvas = document.getElementById('canvasResult');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // ใช้การแบ่งตารางแบบตารางหมากรุกตามจำนวนตัวส่วนร่วม
+            // หากส่วนคือ 6 (เช่นมาจาก 2x3) จะวาดตารางขนาดสอดคล้องกัน
+            const cols = mult1; 
+            const rows = den / mult1; 
+            const cellWidth = width / cols;
+            const cellHeight = height / rows;
+
+            let count1 = 0;
+            let count2 = 0;
+
+            // ระบายสีรวม
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (count1 < finalNum1) {
+                        ctx.fillStyle = color1;
+                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+                        count1++;
+                    } else if (count2 < finalNum2) {
+                        ctx.fillStyle = color2;
+                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+                        count2++;
+                    }
+                }
+            }
+
+            // วาดเส้นกริด
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            for (let r = 0; r <= rows; r++) {
+                ctx.beginPath();
+                ctx.moveTo(0, r * cellHeight);
+                ctx.lineTo(width, r * cellHeight);
+                ctx.stroke();
+            }
+            for (let c = 0; c <= cols; c++) {
+                ctx.beginPath();
+                ctx.moveTo(c * cellWidth, 0);
+                ctx.lineTo(c * cellWidth, height);
+                ctx.stroke();
+            }
+        }
+
+        // วาดค่าเริ่มต้นเมื่อเปิดหน้าเว็บ
+        window.onload = updateAll;
+    </script>
+</body>
+</html>
